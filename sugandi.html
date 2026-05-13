@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no"
+  />
+
+  <title>Video Player Redirect</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, sans-serif;
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+      pointer-events: none;
+    }
+
+    .click-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+
+      z-index: 20;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      padding: 12px 18px;
+
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 24px;
+
+      color: white;
+    }
+
+    .badge {
+      background: #ff4757;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .link-status,
+    .timer-box {
+      background: rgba(255,255,255,0.08);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .timer-box {
+      color: #f1c40f;
+      font-weight: bold;
+    }
+
+    .countdown {
+      font-size: 18px;
+      margin-left: 6px;
+      color: #fff;
+    }
+
+    .urgent {
+      background: #e67e22 !important;
+      color: white !important;
+    }
+
+    .error-message {
+      display: none;
+
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+
+      z-index: 999;
+
+      padding: 14px;
+
+      text-align: center;
+
+      background: crimson;
+      color: white;
+
+      border-radius: 20px;
+    }
+
+    .error-message a {
+      color: yellow;
+    }
+
+    @media (max-width: 600px) {
+      .info-panel {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="video-container">
+
+    <iframe
+      id="videoFrame"
+      src="https://screenapp.io/app/v/sC5Fbs3Mf7"
+      allowfullscreen
+      allow="autoplay; fullscreen; picture-in-picture"
+    ></iframe>
+
+    <div class="click-layer" id="clickLayer"></div>
+
+    <div class="info-panel">
+
+      <div>
+        <span class="badge">⚡ Klik Video</span>
+      </div>
+
+      <div class="link-status">
+        Link berikut:
+        <span id="nextLinkText">Loading...</span>
+      </div>
+
+      <div class="timer-box" id="timerBox">
+        Redirect dalam
+        <span class="countdown" id="countdown">2</span>
+        detik
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="error-message" id="errorMessage">
+    Video tidak bisa ditampilkan.
+    <a
+      href="https://screenapp.io/app/v/sC5Fbs3Mf7"
+      target="_blank"
+    >
+      Buka Video
+    </a>
+  </div>
+
+  <script>
+    (() => {
+
+      /*
+      ========================================
+      CONFIG
+      ========================================
+      */
+
+      const VIDEO_URL =
+        "https://screenapp.io/app/v/sC5Fbs3Mf7";
+
+      const REDIRECT_LINKS = [
+        "https://omg10.com/4/10957304",
+        "https://omg10.com/4/10926387"
+      ];
+
+      const AUTO_REDIRECT_DELAY = 2000;
+
+      /*
+      ========================================
+      STATE
+      ========================================
+      */
+
+      let currentIndex = 0;
+      let countdown = 2;
+
+      let countdownInterval = null;
+      let redirectTimeout = null;
+
+      /*
+      ========================================
+      DOM
+      ========================================
+      */
+
+      const clickLayer =
+        document.getElementById("clickLayer");
+
+      const countdownEl =
+        document.getElementById("countdown");
+
+      const timerBox =
+        document.getElementById("timerBox");
+
+      const nextLinkText =
+        document.getElementById("nextLinkText");
+
+      const errorMessage =
+        document.getElementById("errorMessage");
+
+      const iframe =
+        document.getElementById("videoFrame");
+
+      /*
+      ========================================
+      FUNCTIONS
+      ========================================
+      */
+
+      function getCurrentLink() {
+        return REDIRECT_LINKS[currentIndex];
+      }
+
+      function rotateLink() {
+        currentIndex =
+          (currentIndex + 1) % REDIRECT_LINKS.length;
+
+        updatePreview();
+      }
+
+      function updatePreview() {
+
+        const nextIndex =
+          (currentIndex + 1) % REDIRECT_LINKS.length;
+
+        try {
+
+          const url =
+            new URL(REDIRECT_LINKS[nextIndex]);
+
+          nextLinkText.textContent =
+            url.hostname;
+
+        } catch {
+
+          nextLinkText.textContent =
+            REDIRECT_LINKS[nextIndex];
+        }
+      }
+
+      function clearAllTimers() {
+
+        clearTimeout(redirectTimeout);
+        clearInterval(countdownInterval);
+
+        redirectTimeout = null;
+        countdownInterval = null;
+      }
+
+      function showPopupWarning() {
+
+        alert(
+          "Browser memblokir popup. Izinkan popup untuk website ini."
+        );
+      }
+
+      function openRedirectLink() {
+
+        const url = getCurrentLink();
+
+        console.log("Redirect ke:", url);
+
+        try {
+
+          window.open(url, "_blank");
+
+        } catch (err) {
+
+          showPopupWarning();
+        }
+
+        rotateLink();
+      }
+
+      function startCountdown() {
+
+        clearAllTimers();
+
+        countdown = 2;
+
+        countdownEl.textContent = countdown;
+
+        timerBox.classList.remove("urgent");
+
+        countdownInterval = setInterval(() => {
+
+          countdown--;
+
+          countdownEl.textContent = countdown;
+
+          if (countdown <= 1) {
+            timerBox.classList.add("urgent");
+          }
+
+          if (countdown <= 0) {
+
+            clearAllTimers();
+
+            openRedirectLink();
+          }
+
+        }, 1000);
+
+        redirectTimeout = setTimeout(() => {
+
+          clearAllTimers();
+
+          openRedirectLink();
+
+        }, AUTO_REDIRECT_DELAY);
+      }
+
+      function handleManualClick(event) {
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        openRedirectLink();
+
+        startCountdown();
+      }
+
+      /*
+      ========================================
+      EVENTS
+      ========================================
+      */
+
+      clickLayer.addEventListener(
+        "click",
+        handleManualClick
+      );
+
+      iframe.addEventListener("load", () => {
+
+        errorMessage.style.display = "none";
+      });
+
+      iframe.addEventListener("error", () => {
+
+        errorMessage.style.display = "block";
+      });
+
+      window.addEventListener("beforeunload", () => {
+
+        clearAllTimers();
+      });
+
+      /*
+      ========================================
+      INIT
+      ========================================
+      */
+
+      updatePreview();
+
+      startCountdown();
+
+      console.log("Website siap.");
+
+    })();
+  </script>
+
+</body>
+</html>
